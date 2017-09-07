@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<!--html lang='ja'-->
+<!--head-->
+<meta charset='UTF-8' />
+<!-- Use a templated HTML printing scriptlet to import common stylesheet. -->
+<?!= HtmlService.createHtmlOutputFromFile('Stylesheet').setSandboxMode(HtmlService.SandboxMode.IFRAME).getContent(); ?>
+<!--/head-->
+
+<body style='background-color:#ffffcc' id='body'>
+<div id='report'>
+  <h2>授業日，担当講師など</h2>
+    <div>「授業日」，「担当講師」は必須です．「授業選択」で選択した「クラス」と「科目」を担当している講師の全員に報告が届くよう設定されていますが，
+          送信先を増やしたいときは（教務にも同報したい場合など）は「送信先追加」で選んでください．「送信先追加」は複数選択可です．desktop なら Ctrl ボタンを押しながら選択してください．
+    </div><br>
+    <table>
+      <tr>
+        <td class='title' id='scrollTo'>授業日<span class='essential'>(*)</span></td>
+        <td></td>
+        <td>データをクリアする</td>
+      </tr>
+      <tr>
+        <td><input type='text' id='daySelect'></td>
+        <td></td>
+        <td><input type='button' class='clearButton' value='clear'></td>
+      </tr>
+      <tr>
+        <td class='title'>授業回</td>
+        <td class='title'>担当講師<span class='essential'>(*)</span></td>
+        <td class='title'>送信先追加</td>
+      </tr>
+      <tr>
+        <td class='item-1'>
+          <div>
+            <select id='sessionSelect'>
+            </select>
+          </div>
+          <div class='title'>週2コマの場合は選択</div>
+          <div>
+            <select id='sessionSelect2'>
+            </select>
+          </div>
+        </td>
+        <td class='item-1'>
+          <select id='tutorSelect'>
+          </select>
+        </td>
+        <td class='item-1'><select id='addTutor' multiple='multiple'></select></td>
+      </tr>
+    </table>
+  <h2>授業の種類など</h2>
+    <div>「授業選択」は必須です（複数選択可）．また，「テキスト名」（複数選択可），あるいは「テキスト名直接入力」のどちらか一方は必須です（両方選択しても可）．</div><br>
+    <table>
+      <tr>
+        <td class='title'>授業選択<span class='essential'>(*)</span></td>
+        <td class='title'>テキスト名<span class='essential'>(*)</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class='item-1'><select id='groupSelect' multiple='multiple'></select></td>
+        <td class='item-1'><select id='textSelect' multiple='multiple'></select></td>
+        <td class='item-1'>
+          <div class='title'>テキスト名直接入力<span class='essential'>(*)</span></div>
+          <div><input type='text' id='directText'></div>
+          <div class='title'>進度</div>
+          <div><input type='text' id='progress' value=''></div>
+        </td>           
+      </tr>
+    </table>
+  <h2>報告欄</h2>
+    <h3>所感</h3>
+      <div>授業の具体的な内容，クラス全体に対するコメント，特記事項などがあればここに書いてください．</div><br>
+      <div id='totalCommentArea'>
+        <textarea name='totalComment' id='totalComment' rows='8' cols='70'></textarea>
+      </div>
+    <h3>生徒別コメント</h3>
+      <span class='title'>
+        復習テスト範囲　：
+      </span>
+      <span>
+        <input type='text' id='testRange'>
+      </span>
+      <span class='title'>満点　：</span>
+      <span><input type='text' id='totalScore' value='100'></span>
+      <br>
+      <div id='eachCommentArea'>
+      </div>
+  <h2>プレビュー</h2>
+    <div>プレビューボタンを押すと送信内容が確認できます．
+         もし問題がなければプレビューパネル下部に現れる送信ボタンで送信してください．</div>
+    <div>「プレビューを作成しています．．．」となったまま10秒以上たってもプレビューできない場合は，
+         いったんキャンセルしてもう一度プレビューボタンを押してください．</div>
+    <br>
+    <div>
+      <input type='button' class='previewButton' value='preview'>
+    </div>
+    <div id='previewPanel'>
+    </div>
+    <br>
+  <a href='#scrollTo'>必須項目入力欄に戻る</a>
+</div>
+</body>
+
+<!--/html-->
+<!-- Use a templated HTML printing scriptlet to import JavaScript. -->
+<script> var tutorData = JSON.parse(<?= tData ?>); var userName = <?= loginUserName ?>; </script>
+<?!= HtmlService.createHtmlOutputFromFile('ClientScript').getContent(); ?>

@@ -1,0 +1,476 @@
+<!--script src='//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js'></script-->
+<script src='https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js'></script>
+<script src='https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js'></script>
+
+<script>
+  /**
+   * Run initializations on web app load.
+   */
+/*-----------------------------------------------------------------------------------------------*/
+  //sessionHashのデータは外部に出して分離スプレッドシートの方が管理しやすいだろう．
+  //CSVで保存インターフェースをスプレッドシートにして、管理用のスクリプトを用意。
+  //sessionListなども季節毎に変更しなくて良いオブジェクトにする．
+  
+  var sessionList = ['第01回','第02回','第03回','第04回','第05回','第06回','第07回','第08回','第09回','第10回',
+          '第11回','第12回','第13回','第14回','第15回','第16回','第17回','第18回','第19回','第20回'];
+  //var sessionList = ['第01週(4/15～4/21)','第02週(4/22～4/28)','第03週(4/29～5/5)','第04週(5/6～5/12)','第05週(5/13～5/19)','第06週(5/20～5/26)','第07週(5/27～6/2)',
+  //                   '第08週(6/3～6/9)','第09週(6/10～6/16)','第10週(6/17～6/23)','第11週(6/24～6/30)','第12週(7/1～7/7)','第13週(7/8～7/14)'];
+  
+  var subjectHash = {
+    '英語': {subject: 'E', text: ['英文の仕組み','直読直訳のすすめA2','直読直訳のすすめA','直読直訳のすすめS','直読直訳のすすめE','読解の技法','総合問題集',
+                                  '英文のイロハ','英文法の第一歩','医学・生物系長文','会話','ファイナルチェック','形式別問題集','医系長文','入試模擬演習']},
+    '数学': {subject: 'M', text: ['関数の理論','式の理論','数学Ⅱの微積分','指数対数','三角関数','三角形','ベクトル','数学Ⅲの微積分','後期解析','後期幾何',
+                                  '解析演習','数列','確率','図形と式','数と式','いろいろな曲線','2巡目テキスト（解析編）','2巡目テキスト（代数・幾何編）',
+                                  '入試問題演習','基本事項のチェックA','基本事項のチェックB','基本事項のチェックC','重要問題集','実践問題集']},
+    '化学': {subject: 'C', text: ['理論化学','有機化学']},
+    '生物': {subject: 'B', text: ['1章','2章','3章','4章','5章','6章','7章','8章','9章']},
+    '物理': {subject: 'P', text: ['力学','波動','電磁気','熱力学','原子']},
+    '現国': {subject: 'J', text: ['現代文']},
+    '古典': {subject: 'J', text: ['文法テキスト','重要例文演習','漢文故事成語']},
+    '世界史': {subject: 'S', text: ['日本史']},
+    '日本史': {subject: 'S', text: ['西洋史Ⅰ','西洋史Ⅱ','東洋史Ⅰ','東洋史Ⅱ']},
+    '地理': {subject: 'S', text: ['系統地理編1','系統地理編2','地誌編']},
+    '倫政': {subject: 'S', text: ['現社']},
+    '現社': {subject: 'S', text: ['倫政']},
+    '小論': {subject: 'sr', text: []},
+    '面接': {subject: 'sr', text: []},
+    'ﾘｽﾆﾝｸﾞ': {subject: 'E', text: []},
+    '国語': {subject: 'J', text: []}
+  };
+  
+  /*
+  function errorMsg(e) {//エラー処理用の関数，管理者宛にメールで対処を催促する形式良い？
+    var msg = {
+      'undefSubject': '未登録教科です．管理者に申請して下さい．',
+      'default': 'エラーです．管理者に連絡して下さい．'
+    }
+    return msg.e;
+  }*/
+  
+  //console.log('for DEBUG');
+ 
+  var reportData = {//入力データ保存用オブジェクト
+    //データセット用メソッド
+    setRecipients: function() {
+      var that = this;
+      var recipients = classTable.filter(hasGroups)//クラス名でfilter
+                                 .filter(hasSubjects)//教科名or教科名記号でfilter
+                                 .map(function(lesson){return lesson['tutor'];}).join('，').split('，');//講師名のみ抽出
+      this.recipients = uniqueArray(recipients);
+      
+      function hasGroups(lesson){//クラス名のfilter
+        var groups = that.groupArray;
+        return groups.some(function(groupName){return lesson['groupName'] == groupName;});
+      }
+      
+      function hasSubjects(lesson){//教科名or教科名記号のfilter
+        var pattern = /^([a-zA-Z]+)$|^([^A-Z]+?)\d?(個人|特|強化)?$/;
+        var subject = that.subject.replace(pattern,'$2');
+        var subjects = [subject, subjectHash[subject].subject];//教科名，教科名記号をセット
+        console.log('subject:'+subjects[0].toString()+' subject2:'+subjects[1].toString());
+        return subjects.some(function(subject){return lesson['subject'].match(subject);});
+      }
+    },
+    
+    setSelectedData: function() {
+      var that = this;
+      this['sender']  = $('#tutorSelect option:selected').text();
+      this['session'] = $('#sessionSelect option:selected').text() + ' '
+                      + $('#daySelect').val() + ' '
+                      + $('#sessionSelect2 option:selected').text();
+      
+      var subjectArray = $('#groupSelect option:selected').map($extractText).get();
+      this['subject'] = subjectArray[0].split(',')[1];
+      
+      this['addTutorArray'] = $('#addTutor option:selected').map($extractText).get();
+      
+      var textArray = $('#textSelect option:selected').map($extractText).get();
+      this['textNames'] = textArray +' '+$('#directText').val();
+      
+      this['progress'] = "'"+$('#progress').val();//←/[0-9-]の時だけ'を付加するようにした方がよい．
+      this['totalComment'] = escapeHtml($('#totalComment').val());
+      this['testRange'] = $('#testRange').val();
+      this['totalScore'] = $('#totalScore').val();
+      this['groupArray'] = uniqueArray($('.groupName').map($extractText).get());
+      
+      this['studentArray'] = $('.studentData1').map(function(index,element){
+        var data = {};
+        data['studentName'] = $(element).find('.studentName').text();
+        data['groupName'] = $(element).find('.groupName').text();
+        data['check'] = $(element).find('input:checked').val();
+        data['testResult'] = $(element).find('.testResult').val();
+        data['evaluation'] = $(element).find('.evaluation').find('option:selected').text();
+        return data;
+      }).get();
+      $('.studentData2').each(function(index,element){
+        that['studentArray'][index]['comment'] = escapeHtml($(element).find('.eachTextArea').val());
+      });
+      
+      storageData.write();//localStorageに保存しておく．
+      
+      function $extractText(){return $(this).text();}
+    },
+    
+    restore: function() {
+      var data = storageData.read();
+      //if(data != '') $('.report').empty().append(data);
+    },
+    
+    clear: function() {
+      $('#daySelect').val('');
+      $('#sessionSelect option').attr('selected',false);
+      $('#sessionSelect').selectmenu('refresh');
+      $('#sessionSelect2 option').attr('selected',false);
+      $('#sessionSelect2').selectmenu('refresh');
+      var optionSelector = (userName != '' ? ':contains('+userName+')' : ':empty');
+      $('#tutorSelect').find(optionSelector).attr('selected',true).end().selectmenu('refresh');//refreshしないと反映されない．
+      $('#addTutor option').attr('selected',false);
+      $('#groupSelect').empty();
+      $('#textSelect').empty();
+      $('#directText').val('');
+      $('#progress').val('');
+      $('#eachCommentArea').empty();
+      $('#totalComment').val('');
+      $('#testRange').val('');
+      $('#totalScore').val('100');
+      
+      storageData.clear();
+      
+      if(userName != '') afterTutorSelected();
+    }
+  };
+  
+  var storageData = {
+    key: 'MeBioReport',//暫定版，ストレージのkeyはuser毎に変えた方が良い
+    write: function() {
+      localStorage[this.key]=JSON.stringify(reportData);
+    },
+    read: function() {
+      reportData = JSON.parse(localStorage[this.key]);
+    },
+    clear: function() {
+      localStorage.removeItem(this.key);
+    }
+  }
+  
+  function escapeHtml(html) {
+    return $('<div>').text(html).html().replace(/\n/g,'<br>');
+  }
+  function unescapeHtml(val) {
+    return $('<div>').html(val).text();
+  }
+  
+/*-----------------------------------------------------------------------------------------------*/
+  //tutorDataは，Index.htmlと同時に取得するように変更．→main.gsのdogetの中と，index.htmlファイルの下から2行目
+  //これにより，初めから講師名が表示されるようになる．
+/*-----------------------------------------------------------------------------------------------*/
+  $(function(){//Initialization
+    var $tutorSelect = $('#tutorSelect').empty();//担当講師選択ボックス
+    $tutorSelect.selectmenu()
+                .selectmenu('option','width',180)
+                .selectmenu('menuWidget')
+                .addClass('overflow');
+    $tutorSelect.append(['<option value=empty></option>'])
+                .append(tutorData.map(function(tutorName,i){return '<option value="tutor'+i+'">'+tutorName+'</option>';}));
+    var optionSelector = (userName != '' ? ':contains('+userName+')' : ':empty');
+    $tutorSelect.children(optionSelector).attr('selected',true).end().selectmenu('refresh');//refreshして反映
+    
+    $('#addTutor').append(tutorData.map(function(tutorName,i){return '<option value="tutor'+i+'">'+tutorName+'</option>';}));
+    
+    var $sessionSelect = $('#sessionSelect').empty();//授業回選択ボックス
+    $sessionSelect.selectmenu()
+                  .selectmenu('option','width',280)
+                  .selectmenu('menuWidget')
+                  .addClass('overflow');
+    $sessionSelect.append(['<option value=empty selected></option>'])
+                  .append(sessionList.map(function(session,i){return '<option value="session'+i+'">'+session+'</option>';}));
+    
+    var $sessionSelect2 = $('#sessionSelect2').empty();//授業回選択ボックス2
+    $sessionSelect2.selectmenu()
+                   .selectmenu('option','width',150)
+                   .selectmenu('menuWidget');
+    $sessionSelect2.append(['<option value=empty selected></option>','<option>1コマ目</option>','<option>2コマ目</option>']);
+    
+    $('.clearButton').button();
+    $('.clearButton').on('click',reportData.clear);
+    
+    $('.previewButton').button();
+    $('.previewButton').on('click',clickePreviewButton);
+    
+    $('#previewPanel').dialog(getPreviewDialogObj());
+    
+    $.datepicker.setDefaults($.datepicker.regional['ja']);
+    $('#daySelect').datepicker({dateFormat:'mm/dd'});
+    
+    $('a[href^=#]').on('click', function () {//必須項目入力欄に戻るのアニメーション
+      var element = $($(this).attr('href'));
+      var top = element.offset().top-$('h2').offset().top;
+      $('#report').animate({ scrollTop: top },1300, 'easeOutBounce');
+      return false;
+    });
+    
+    $(window).on('beforeunload',function(e){
+      return '授業報告を閉じようとしています．';
+　　});
+  });//End Initialization
+/*-----------------------------------------------------------------------------------------------*/
+  var classTable = 'classTable is empty';//Debug用
+  
+  google.script.run
+      .withSuccessHandler(setClassTable)
+      .getClassTable();//←これが核になるデータの取得！
+  
+  function setClassTable(Objs){//Callback Function for getClassTable
+    classTable = Objs;
+    console.log(classTable);
+    //連絡相手の変更の保守は、クラス表の形式をきっちり決めればできる。
+    //初期化のスクリプト中に保守用スプレッドシート用のdata checkerを用意しておいた方がよい。
+    //if(userName != '') afterTutorSelected();
+    
+    var $tutorSelect = $('#tutorSelect');
+    $tutorSelect.on('selectmenuchange',afterTutorSelected);
+    if(userName != '') $tutorSelect.trigger('selectmenuchange');
+  }//End setClassTable
+  
+  function afterTutorSelected(){
+    $('#textSelect').empty();
+    $('#eachCommentArea').empty();
+    $('#addTutor option').attr('selected',false);
+    
+    var tutor = $('#tutorSelect option:selected').text();
+    console.log('selected tutor:'+tutor.toString());
+    var groups = groupList(tutor);
+    console.log(groups);
+    $('#groupSelect').empty()
+                     .append(groups.map(function(groupName,i){return '<option value="group'+i+'">'+groupName+'</option>';}));
+                     //.append(groups.map(function(groupName,i){return '<option value="group'+i+'">'+groupName['groupName']+','+groupName['subject']+'</option>';}));
+    $('#groupSelect').on('change',changeGroupSelect);
+  }
+
+  // function for #groupSelect  tutor に対して[クラス，科目]のリストを返す．
+  function groupList(tutor) {
+    var groupList = classTable.filter(function(lesson){return (lesson['tutor']==tutor && lesson['subject'].match(/[^a-zA-Z]/));})
+                             .map(function(lesson){
+                               /*var obj = {};
+                               obj['groupName'] = lesson['groupName'];
+                               obj['subject'] = lesson['subject'];
+                               return obj;*/
+                               return [lesson['groupName'],lesson['subject']];
+                             });
+    return uniqueArray(groupList);
+  }//End groupList
+
+/*-----------------------------------------------------------------------------------------------*/
+  function changeGroupSelect(){
+    var tutor = $('#tutorSelect option:selected').text();
+    console.log(tutor);
+    
+    var subjectArray = $('#groupSelect option:selected').map(function(){return $(this).text();}).get();
+    
+    console.log(subjectArray);
+    console.log('num of selected:'+subjectArray.length);
+    
+    //選択された（クラス，科目）の組み合わせのリストを返す．
+    var csList = subjectArray.map(function(e){return e.split(',');});
+    console.log(csList[0][1]);
+    var textNames = textList(csList[0][1]);//（クラス，科目）リストの一つ目の科目からテキストのリストを返す．
+    
+    $('#textSelect').empty()
+                    .append(textNames.map(function(textName,i){return '<option value="text'+i+'">'+textName+'</option>';}));
+    //（クラス，科目，講師）で結ばれる全ての(クラス，生徒)ペアのリストを取得し，
+    //(クラス，生徒)のリストから全生徒に対する覚書欄を作成
+    var HTML = makeReportArea(studentList(csList,tutor));
+    $('#eachCommentArea').empty()
+                         .append(HTML);
+  }
+  
+  //function For #groupSelect //subject に対してテキストのリストを返す．
+  function textList(subject){
+    console.log('subject:'+subject);
+    var pattern = /^([A-Z]+)$|^([^A-Z]+?)\d?(個人|特|強化)?$/;
+    subject = subject.replace(pattern,'$2');
+    //if(!subjectHash[subject]){return [errorMsg('undefSubject')];}
+    if(!subjectHash[subject]){return [];}//←授業科目が登録されていない場合の当面の対処だが．管理者に科目登録を促すメールを送るよう設定する．
+    var textNames = subjectHash[subject].text;
+    console.log('textlist:'+textNames);
+    return textNames;
+  }
+  
+  //function For make Report Area (in #groupSelect)
+  function studentList(groupSubjectList,tutor){//（クラス，科目，講師）でfilterした [クラス,生徒] のリストを取得
+    var lessonList = classTable.filter(function(lesson){return tutor==lesson['tutor'];});
+    lessonList = lessonList.filter(
+      function(lesson){
+        return groupSubjectList.some(function(csElm){return (csElm[0]==lesson['groupName'] && csElm[1]==lesson['subject']);});
+      });
+    return lessonList.map(function(lesson){return [lesson['groupName'], lesson['student']];});//[クラス,生徒名]のリスト
+  }//End studentList
+  
+  //（生徒，クラス）の組み合わせから，覚書欄を作成
+  function makeReportArea(sclist) {
+    var HTML;
+    HTML ='<table>';
+    sclist.forEach(function(scName,i){
+      var checkId = 'check'+i;
+      HTML += '<tr class="studentData1">';
+      HTML += '<td class="groupName">'+scName[0]+'</td>';
+      HTML += '<td>　</td>';
+      HTML += '<td class="studentName">'+scName[1]+'</td>';
+      HTML += '<td>　　</td>';
+      HTML += '<td>得点:<input type="text" class = "testResult"></td>';
+      HTML += '<td>　</td>';
+      HTML += '<td>評価:<select class="evaluation"><option></option><option>不合格</option><option>優秀</option></select>　</td>';
+      HTML += '<td><input type="radio" class="check" name='+checkId+' value="欠席">欠席</td>';
+      HTML += '<td><input type="radio" class="check" name='+checkId+' value="遅刻">遅刻</td>';
+      HTML += '<td><input type="radio" class="check" name='+checkId+' value="出席" checked="true">出席</td>';
+      HTML += '</tr>';
+    });
+    HTML += '</table>';
+    HTML += '<br>';
+    sclist.forEach(function(scName){
+      HTML += '<div class="studentData2">';
+      HTML += '<span class="stName">'+scName[0]+'</span>：<span class="stName">'+scName[1]+'</span>';
+      HTML += '<div><textarea class="eachTextArea" rows="7" cols="70"></textarea></div><br>';
+      HTML += '</div>';
+    });
+    return HTML;
+  }
+/*-----------------------------------------------------------------------------------------------*/
+
+  function clickePreviewButton(){
+    reportData.setSelectedData();//入力したデータを読み込む．
+    reportData.setRecipients();
+    var $previewPanel = $('#previewPanel').empty();
+    $previewPanel.append('<div>プレビューを作成しています．．．</div>');
+    var HTML = previewSet();
+    $previewPanel.empty()
+                 .append(HTML)
+                 .dialog('open');
+  }
+  
+  function previewSet(){//プレビューパネルのHTMLを返す．
+    var HTML;
+    HTML  = '<div>----------送信先----------</div>';
+    HTML += '<div>'+reportData.recipients+'</div>';//送信先の講師名
+    if(reportData.addTutorArray.length>0){
+      HTML += '<div>----------追加送信先----------</div>';
+      HTML += '<div>'+reportData.addTutorArray+'</div>';
+    }
+    HTML += '<div>----------件名----------</div>';
+    HTML += '<div id="reportTitle">[MeBio] 授業報告 '+reportData.groupArray+' '+reportData.subject+' '+reportData.sender+' 担当</div>';
+    HTML += '<div>----------本文----------</div>';
+    HTML += '<div id="reportContent">';
+    HTML += '<div>【クラス】 '+reportData.groupArray+'</div><br>';
+    HTML += '<div>【担当講師】 '+reportData.sender+'</div><br>';
+    HTML += '<div>【授業回】 '+reportData.session+'</div><br>';
+    HTML += '<div>【テキスト】 '+reportData.textNames+'</div><br>';
+    HTML += '<div>【進度】 '+reportData.progress+'</div><br>';
+    HTML += '<div>【所感】</div>';
+    HTML += '<div>'+reportData.totalComment+'</div><br>'
+    HTML += '<div>【復習テスト範囲】 '+reportData.testRange+'</div><br>';
+    HTML += '<div>【復習テスト成績】（満点：'+reportData.totalScore+'点）</div>';
+    reportData.studentArray.forEach(function(data){
+      if(data.check=='出席'){data.check='';};
+      HTML += data.studentName+' : '+data.testResult+' '+data.evaluation+' '+data.check+'<br>'; 
+    });
+    HTML += '<br>';
+    HTML += '<div>【生徒別コメント】</div>';
+    reportData.studentArray.forEach(function(data){
+      HTML += '<div>'+data.studentName+':</div>';
+      HTML += '<div>'+data.comment+'</div><br>';
+    });
+    HTML += '</div>';
+    HTML += '<div>----------以上本文----------</div>';
+    HTML += '<br>'
+    HTML += '<div>上記の内容に問題がなければ送信ボタンを押してください．この内容で送信します．</div>'
+    return HTML;
+  }
+  
+  function getPreviewDialogObj() {
+    return {
+      width:500,
+      height:600,
+      autoOpen: false,
+      title: 'preview',
+      closeOnEscape: false,
+      modal: true,
+      buttons:[{
+        text: '送信',
+        class:'btn-submit',
+        click: function () {previewSubmit();}//この関数は長いので下に分離した．
+//        click: previewSubmit()//この関数は長いので下に分離した．
+      },{
+        text: 'キャンセル',
+        class:'btn-cancel',
+        click: function() {$(this).dialog('close');}
+      },{
+        text: 'OK',
+        class:'btn-ok',
+        click: function() {
+          $(this).dialog('close');
+          toggleButtons();
+        }
+      }]
+    };
+  }
+  
+  function previewSubmit() {//入力判定もさらにタグにrequiredを加えると良い．
+    var emailSubject = $('#reportTitle').text();//previewPanelからemailSubjectを取り出す．
+    var emailBody = unescapeHtml($('#reportContent').html().replace(/<div>/g,'').replace(/<\/div>|<br>/g,'\n'));//previewPanelからemailBodyを取り出す．
+    var msg = '';
+    var id = '';
+    if($('#daySelect').val()==''){
+      id = 'error';
+      msg = '「授業日」が入力されていません．';
+    } else if($('#groupSelect opiton:selected').text()){
+      id = 'error';
+      msg = '「授業選択」が選択されていません．'
+    } else if($('#textSelect option:selected').text()=='' && $('#directText').val()==''){
+      id = 'error';
+      msg = '「テキスト名」あるいは「テキスト名直接入力」が入力されていません．';
+    }/* else if($('#groupSelect option:selected').text().match(/英語3/) && ($('#sessionSelect2 option:selected').text()=='' || $('#progress').val()=='')){//ForEng3
+      id = 'error';
+      msg = '「英語3」の系統は，週1コマの場合でも1コマ目または2コマ目を選び，進度も入力して下さい．';
+    }*/ else {
+      id = 'sending';
+      msg = 'sending...';
+      google.script.run
+        .withSuccessHandler(postprocess)
+        .sendEmailAndReport(emailSubject,emailBody,JSON.stringify(reportData));
+    }
+    $('#previewPanel').empty()//previewPanelをクリア
+                      .append('<p id="'+id+'">'+msg+'</p>');
+    if(id == 'error') toggleButtons();
+  }
+  
+  function postprocess(result){//callback function for sendEmailAndReport
+    console.log('in postprocess')
+    console.log(result);
+    $('#previewPanel').empty()
+                      .append('<p id="send">送信しました．この授業の報告はこれで終わりです．報告ありがとうございました．</p>');
+    toggleButtons();
+  }
+  
+  function toggleButtons(){
+    $('.btn-submit').toggle();
+    $('.btn-cancel').toggle();
+    $('.btn-ok').toggle();   
+  }
+  
+
+/*-----------------------------------------------------------------------------------------------*/
+  //配列の重複を取り除く
+  function uniqueArray(array) {
+    var storage = {};
+    var uniqueArray = [];
+    var i, value, len = array.length;
+    for (i = 0; i < len; i++) {
+      value = array[i];
+      if (!(value in storage)) {
+        storage[value] = true;
+        uniqueArray.push(value);
+      }
+    }
+    return uniqueArray;
+  }
+</script>
